@@ -1,4 +1,4 @@
-from src.alphabet import TelegraphAlphabet
+from alphabet import TelegraphAlphabet
 
 # Реализация шифра Тритемиуса
 class TritemiusCipher:

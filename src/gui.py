@@ -5,7 +5,7 @@
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
 
-from .sblocks import EnhancedCryptoSystem
+from sblocks import EnhancedCryptoSystem
 
 class CryptoApp:
     """Главное окно приложения с 4 вкладками"""

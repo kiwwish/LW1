@@ -1,6 +1,5 @@
-
-from .alphabet import TelegraphAlphabet
-from .tritemius import PolyAlphabeticCipher, TritemiusCipher
+from alphabet import TelegraphAlphabet
+from tritemius import PolyAlphabeticCipher, TritemiusCipher
 
 
 class SBlock:
