@@ -1,3 +1,4 @@
+
 from .alphabet import TelegraphAlphabet
 from .tritemius import PolyAlphabeticCipher, TritemiusCipher
 
@@ -71,6 +72,70 @@ class SBlock:
 
         return ''.join(result)
 
+    def apply_sbox_with_key(self, block: str, key_word: str) -> str:
+        """Применение S-блока с ключом"""
+        if len(block) != 4:
+            raise ValueError(f"Блок должен содержать 4 символа, получено {len(block)}")
+
+        result = []
+        key_length = len(key_word)
+
+        for i, char in enumerate(block):
+            if self.alphabet.is_valid_char(char):
+                # Получаем значение символа ключа для этой позиции
+                if key_word:
+                    key_char = key_word[i % key_length]
+                    key_val = self.alphabet.get_value(key_char)
+                else:
+                    key_val = 0
+
+                # Применяем S-бокс
+                transformed = self._sbox_transform(char, i)
+
+                # Добавляем влияние ключа
+                val = self.alphabet.get_value(transformed)
+                new_val = (val + key_val) % 32
+                result.append(self.alphabet.get_char(new_val))
+            else:
+                result.append(char)
+
+        return ''.join(result)
+
+    def apply_inverse_sbox_with_key(self, block: str, key_word: str) -> str:
+        """Обратное преобразование S-блока с ключом"""
+        if len(block) != 4:
+            raise ValueError(f"Блок должен содержать 4 символа, получено {len(block)}")
+
+        result = []
+        key_length = len(key_word)
+
+        for i, char in enumerate(block):
+            if self.alphabet.is_valid_char(char):
+                # Получаем значение символа ключа
+                if key_word:
+                    key_char = key_word[i % key_length]
+                    key_val = self.alphabet.get_value(key_char)
+                else:
+                    key_val = 0
+
+                # Убираем влияние ключа
+                val = self.alphabet.get_value(char)
+                base_val = (val - key_val) % 32
+                base_char = self.alphabet.get_char(base_val)
+
+                # Убираем позиционный сдвиг
+                shift = (i * 5) % 32
+                sbox_val = (self.alphabet.get_value(base_char) - shift) % 32
+                sbox_char = self.alphabet.get_char(sbox_val)
+
+                # Обратное преобразование S-бокса
+                original = self.inv_sbox.get(sbox_char, sbox_char)
+                result.append(original)
+            else:
+                result.append(char)
+
+        return ''.join(result)
+
 
 class EnhancedCryptoSystem:
     """Усиленная криптосистема с S-блоками"""
@@ -81,6 +146,76 @@ class EnhancedCryptoSystem:
         self.poly_cipher = PolyAlphabeticCipher(self.alphabet, self.cipher)
         self.sblock = SBlock(self.alphabet)
 
+    # Метод для обычного шифра Тритемиуса
+    def encrypt_simple(self, text: str, key_word: str) -> str:
+        """Обычное шифрование Тритемиуса (моноалфавитное)"""
+        if not key_word:
+            return text
+
+        key_char = key_word[0].upper()
+        result = []
+
+        for char in text.upper():
+            if self.alphabet.is_valid_char(char):
+                encrypted = self.cipher.encrypt_char(char, key_char)
+                result.append(encrypted)
+            else:
+                result.append(char)
+
+        return ''.join(result)
+
+    def decrypt_simple(self, text: str, key_word: str) -> str:
+        """Дешифрование обычного шифра Тритемиуса"""
+        key_char = key_word[0].upper() if key_word else 'А'
+        result = []
+
+        for char in text.upper():
+            if self.alphabet.is_valid_char(char):
+                decrypted = self.cipher.decrypt_char(char, key_char)
+                result.append(decrypted)
+            else:
+                result.append(char)
+
+        return ''.join(result)
+
+    # Метод для полиалфавитного шифра Тритемиуса
+    def encrypt_polyalphabetic(self, text: str, key_word: str, shift: int = 0) -> str:
+        """Полиалфавитное шифрование Тритемиуса с дополнительным сдвигом"""
+        # Сначала полиалфавитное шифрование
+        encrypted = self.poly_cipher.encrypt_text_polyalphabetic(text, key_word)
+
+        # Затем применяем дополнительный сдвиг
+        if shift != 0:
+            shifted_chars = []
+            for char in encrypted:
+                if self.alphabet.is_valid_char(char):
+                    val = self.alphabet.get_value(char)
+                    new_val = (val + shift) % 32
+                    shifted_chars.append(self.alphabet.get_char(new_val))
+                else:
+                    shifted_chars.append(char)
+            encrypted = ''.join(shifted_chars)
+
+        return encrypted
+
+    def decrypt_polyalphabetic(self, text: str, key_word: str, shift: int = 0) -> str:
+        """Дешифрование полиалфавитного шифра Тритемиуса"""
+        # Сначала убираем дополнительный сдвиг
+        if shift != 0:
+            unshifted_chars = []
+            for char in text:
+                if self.alphabet.is_valid_char(char):
+                    val = self.alphabet.get_value(char)
+                    new_val = (val - shift) % 32
+                    unshifted_chars.append(self.alphabet.get_char(new_val))
+                else:
+                    unshifted_chars.append(char)
+            text = ''.join(unshifted_chars)
+
+        # Затем полиалфавитное дешифрование
+        return self.poly_cipher.decrypt_text_polyalphabetic(text, key_word)
+
+    # Метод для S-блоков
     def encrypt_with_sblocks(self, text: str, key_word: str) -> str:
         """
         Полное шифрование: Тритемиус → S-блоки
@@ -89,7 +224,6 @@ class EnhancedCryptoSystem:
         poly_encrypted = self.poly_cipher.encrypt_text_polyalphabetic(text, key_word)
 
         # 2. Разбивка на блоки по 4 символа
-        # Добавляем padding, если нужно
         padded_text = self._pad_text(poly_encrypted)
 
         # 3. Применение S-блоков к каждому блоку
@@ -118,6 +252,41 @@ class EnhancedCryptoSystem:
         # 3. Дешифрование Тритемиуса
         return self.poly_cipher.decrypt_text_polyalphabetic(unpadded, key_word)
 
+    # Метод для усиленных S-блоков
+    def encrypt_enhanced_sblocks(self, text: str, key_word: str) -> str:
+        """Шифрование с усиленными S-блоками"""
+        # 1. Полиалфавитное шифрование
+        poly_encrypted = self.poly_cipher.encrypt_text_polyalphabetic(text, key_word)
+
+        # 2. Разбивка на блоки
+        padded_text = self._pad_text(poly_encrypted)
+
+        # 3. Применение усиленных S-блоков
+        result_blocks = []
+        for i in range(0, len(padded_text), 4):
+            block = padded_text[i:i + 4]
+            sbox_block = self.sblock.apply_sbox_with_key(block, key_word)
+            result_blocks.append(sbox_block)
+
+        return ''.join(result_blocks)
+
+    def decrypt_enhanced_sblocks(self, text: str, key_word: str) -> str:
+        """Дешифрование с усиленными S-блоками"""
+        # 1. Обратное преобразование усиленных S-блоков
+        result_blocks = []
+        for i in range(0, len(text), 4):
+            block = text[i:i + 4]
+            sbox_block = self.sblock.apply_inverse_sbox_with_key(block, key_word)
+            result_blocks.append(sbox_block)
+
+        sbox_decrypted = ''.join(result_blocks)
+
+        # 2. Убираем padding
+        unpadded = self._unpad_text(sbox_decrypted)
+
+        # 3. Дешифрование Тритемиуса
+        return self.poly_cipher.decrypt_text_polyalphabetic(unpadded, key_word)
+
     def _pad_text(self, text: str) -> str:
         """Добавление padding для выравнивания по 4 символа"""
         remainder = len(text) % 4
@@ -125,75 +294,8 @@ class EnhancedCryptoSystem:
             return text
 
         padding_needed = 4 - remainder
-        # Используем 'А' для padding (можно любой символ из алфавита)
         return text + 'А' * padding_needed
 
     def _unpad_text(self, text: str) -> str:
         """Удаление padding"""
-        # В простейшем случае - убираем 'А' в конце
-        # В реальной системе нужно хранить длину исходного текста
         return text.rstrip('А')
-
-    def analyze_properties(self):
-        """Анализ свойств криптосистемы (Задача 6)"""
-        print("\n" + "=" * 60)
-        print("АНАЛИЗ СВОЙСТВ КРИПТОСИСТЕМЫ")
-        print("=" * 60)
-
-        # 1. Влияние позиции символа в блоке
-        print("\n1. Влияние позиции символа на отображение:")
-        test_char = 'А'
-        for pos in range(4):
-            block = 'А' * 4
-            block_list = list(block)
-            block_list[pos] = test_char
-            test_block = ''.join(block_list)
-
-            encrypted = self.sblock.apply_sbox(test_block)
-            print(f"   Блок '{test_block}' → '{encrypted}'")
-            print(f"   Символ на позиции {pos}: {test_char} → {encrypted[pos]}")
-
-        # 2. Порядок применения ключей
-        print("\n2. Порядок применения ключей:")
-        text = "ТЕКСТ"
-        key1 = "ПЕРВЫЙ"
-        key2 = "ВТОРОЙ"
-
-        # Шифруем ключом1, потом ключом2
-        enc1 = self.poly_cipher.encrypt_text_polyalphabetic(text, key1)
-        enc2 = self.poly_cipher.encrypt_text_polyalphabetic(enc1, key2)
-
-        # Дешифруем в обратном порядке
-        dec1 = self.poly_cipher.decrypt_text_polyalphabetic(enc2, key2)
-        dec2 = self.poly_cipher.decrypt_text_polyalphabetic(dec1, key1)
-
-        print(f"   Исходный: {text}")
-        print(f"   Ключ1 → Ключ2: {enc2}")
-        print(f"   Дешифровка (ключ2 → ключ1): {dec2}")
-        print(f"   Совпадение с исходным: {'✓' if dec2 == text else '✗'}")
-
-        # 3. Эффект лавины (изменение одного символа)
-        print("\n3. Эффект лавины (avalanche effect):")
-        text1 = "АБВГДЕЖЗ"
-        text2 = "АБВГДЕЖИ"  # Изменили последний символ
-
-        key = "КЛЮЧИК"
-        enc1 = self.encrypt_with_sblocks(text1, key)
-        enc2 = self.encrypt_with_sblocks(text2, key)
-
-        # Считаем разницу
-        diff_count = sum(1 for a, b in zip(enc1, enc2) if a != b)
-        total_len = len(enc1)
-
-        print(f"   Текст1: {text1}")
-        print(f"   Текст2: {text2}")
-        print(f"   Шифротекст1: {enc1}")
-        print(f"   Шифротекст2: {enc2}")
-        print(f"   Изменилось символов: {diff_count}/{total_len}")
-        print(f"   Процент изменения: {diff_count / total_len * 100:.1f}%")
-
-        if diff_count > 1:
-            print("   ✓ Эффект лавины присутствует!")
-        else:
-            print("   ✗ Эффект лавины слабый")
-
