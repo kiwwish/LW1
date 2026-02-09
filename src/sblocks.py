@@ -56,13 +56,61 @@ class EnhancedCryptoSystem:
     def __init__(self, shift: int = 8):
         self.alphabet = TelegraphAlphabet()
         self.cipher = TritemiusCipher(shift=shift)
-        self.poly_cipher = PolyTritemiusCipher(shift=8)
+        self.poly_cipher = PolyTritemiusCipher(shift=shift)  # Используем переданный shift
         self.text_cipher = TextCipher(self.cipher)
         self.sblock = SBlock()  # Используем новый SBlock
 
-    # ... остальные методы без изменений (encrypt_simple, decrypt_simple и т.д.) ...
+    # Простые методы шифрования (моноалфавитные)
+    def encrypt_simple(self, text: str, key: str) -> str:
+        """Простое шифрование Тритемиуса"""
+        return self.text_cipher.encrypt_text(text, key)
 
-    # Новые методы для S-блоков (по псевдокоду)
+    def decrypt_simple(self, text: str, key: str) -> str:
+        """Простое дешифрование Тритемиуса"""
+        return self.text_cipher.decrypt_text(text, key)
+
+    # Полиалфавитные методы (которые отсутствовали и вызывали ошибку)
+    def encrypt_polyalphabetic(self, text: str, key: str, shift: int = None) -> str:
+        """
+        Полиалфавитное шифрование
+
+        Args:
+            text: исходный текст
+            key: ключевое слово
+            shift: сдвиг (опционально, по умолчанию из конструктора)
+
+        Returns:
+            Зашифрованный текст
+        """
+        if shift is not None and shift != self.poly_cipher.shift:
+            # Если передали новый сдвиг, создаём новый объект
+            poly_cipher = PolyTritemiusCipher(shift=shift)
+            return poly_cipher.encrypt(text, key)
+        else:
+            # Используем существующий объект
+            return self.poly_cipher.encrypt(text, key)
+
+    def decrypt_polyalphabetic(self, text: str, key: str, shift: int = None) -> str:
+        """
+        Расшифровка полиалфавитного шифра
+
+        Args:
+            text: зашифрованный текст
+            key: ключевое слово
+            shift: сдвиг (опционально, по умолчанию из конструктора)
+
+        Returns:
+            Расшифрованный текст
+        """
+        if shift is not None and shift != self.poly_cipher.shift:
+            # Если передали новый сдвиг, создаём новый объект
+            poly_cipher = PolyTritemiusCipher(shift=shift)
+            return poly_cipher.decrypt(text, key)
+        else:
+            # Используем существующий объект
+            return self.poly_cipher.decrypt(text, key)
+
+    # Методы для S-блоков
     def encrypt_s_blocks(self, text: str, key: str) -> str:
         """
         Шифрование текста с использованием S-блоков
@@ -114,3 +162,24 @@ class EnhancedCryptoSystem:
             result_blocks.append(decrypted_block)
 
         return ''.join(result_blocks)
+
+    # Методы для усиленных S-блоков (если они используются)
+    def encrypt_enhanced_sblocks(self, text: str, key: str) -> str:
+        """
+        Шифрование с усиленными S-блоками
+
+        Примечание: Этот метод нужно будет реализовать, если требуется
+        специальная логика для усиленных S-блоков
+        """
+        # Временная реализация - используем обычное полиалфавитное шифрование
+        return self.encrypt_polyalphabetic(text, key)
+
+    def decrypt_enhanced_sblocks(self, text: str, key: str) -> str:
+        """
+        Дешифрование с усиленными S-блоками
+
+        Примечание: Этот метод нужно будет реализовать, если требуется
+        специальная логика для усиленных S-блоков
+        """
+        # Временная реализация - используем обычное полиалфавитное дешифрование
+        return self.decrypt_polyalphabetic(text, key)
