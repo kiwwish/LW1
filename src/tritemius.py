@@ -1,4 +1,4 @@
-from alphabet import TelegraphAlphabet, CustomAlphabet
+from alphabet import TelegraphAlphabet, CustomAlphabet, PolyAlphabet
 
 
 # Реализация шифра Тритемиуса
@@ -87,8 +87,114 @@ class TextCipher:
         return ''.join(result)
 
 
+class PolyTritemiusCipher:
+    """Полиалфавитный шифр Тритемиуса"""
+
+    def __init__(self, shift: int = 8):
+        self.shift = shift
+        self.standard_alphabet = TelegraphAlphabet()
+
+    def encrypt(self, text: str, key: str) -> str:
+        """
+        Полиалфавитное шифрование по алгоритму fru_poly_Trithemus
+
+        Args:
+            text: исходный текст
+            key: ключевое слово
+
+        Returns:
+            Зашифрованный текст
+        """
+        if not key:
+            return text
+
+        # Строим начальную таблицу
+        poly_alpha = PolyAlphabet(key)
+        table = poly_alpha.custom_symbols.copy()
+        key_array = list(key.upper())
+        key_len = len(key_array)
+
+        result = []
+
+        for i, char in enumerate(text.upper()):
+            if not self.standard_alphabet.is_valid_char(char):
+                result.append(char)
+                continue
+
+            # Шифруем символ (fru_Trithemus)
+            try:
+                pos = table.index(char)
+            except ValueError:
+                # Символ не найден в таблице (не должен происходить)
+                result.append(char)
+                continue
+
+            encrypted_pos = (pos + self.shift) % 32
+            csym = table[encrypted_pos]
+            result.append(csym)
+
+            # Обновляем таблицу для следующего символа
+            k = i % key_len
+            b = (key_len + i) % 32
+            table = poly_alpha.shift_table(table, key_array[k], b)
+
+        return ''.join(result)
+
+    def decrypt(self, text: str, key: str) -> str:
+        """
+        Расшифровка полиалфавитного шифра
+
+        Args:
+            text: зашифрованный текст
+            key: ключевое слово
+
+        Returns:
+            Расшифрованный текст
+        """
+        if not key:
+            return text
+
+        # Строим начальную таблицу
+        poly_alpha = PolyAlphabet(key)
+        table = poly_alpha.custom_symbols.copy()
+        key_array = list(key.upper())
+        key_len = len(key_array)
+
+        result = []
+
+        for i, char in enumerate(text.upper()):
+            if not self.standard_alphabet.is_valid_char(char):
+                result.append(char)
+                continue
+
+            # Расшифровываем символ
+            try:
+                pos = table.index(char)
+            except ValueError:
+                # Символ не найден в таблице
+                result.append(char)
+                continue
+
+            decrypted_pos = (pos - self.shift) % 32
+            csym = table[decrypted_pos]
+            result.append(csym)
+
+            # Обновляем таблицу для следующего символа
+            k = i % key_len
+            b = (key_len + i) % 32
+            table = poly_alpha.shift_table(table, key_array[k], b)
+
+        return ''.join(result)
+
+
 # Дополнительные методы для работы с алфавитом
 def get_custom_alphabet_string(key_word: str) -> str:
     """Получить строковое представление пользовательского алфавита"""
     alphabet = CustomAlphabet(key_word)
+    return ', '.join(alphabet.custom_symbols)
+
+
+def get_poly_alphabet_string(key_word: str) -> str:
+    """Получить строковое представление полиалфавита"""
+    alphabet = PolyAlphabet(key_word)
     return ', '.join(alphabet.custom_symbols)

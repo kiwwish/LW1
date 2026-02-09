@@ -86,4 +86,90 @@ class CustomAlphabet:
         return custom_alpha
 
 
+class PolyAlphabet:
+    """Алфавит для полиалфавитного шифра Тритемиуса (с заменой дубликатов)"""
 
+    def __init__(self, key, standard_alphabet=None):
+        """
+        Инициализация полиалфавита
+
+        Args:
+            key (str): Ключевое слово
+            standard_alphabet: Базовый алфавит (по умолчанию TelegraphAlphabet)
+        """
+        if standard_alphabet is None:
+            standard_alphabet = TelegraphAlphabet()
+
+        self.standard_alphabet = standard_alphabet
+        self.key = key.upper()
+        self.custom_symbols = self._build_poly_alphabet()
+        self.char_to_val = {char: idx for idx, char in enumerate(self.custom_symbols)}
+        self.val_to_char = {idx: char for idx, char in enumerate(self.custom_symbols)}
+
+    def _build_poly_alphabet(self):
+        """Построение алфавита по алгоритму Thrithemus_table"""
+        out = []
+
+        for i in range(len(self.key)):
+            tmp = self.key[i]
+            # Пока символ уже есть в out, увеличиваем его на 1
+            while self._char_in_list(tmp, out):
+                # Получаем следующий символ по стандартному алфавиту
+                val = self.standard_alphabet.get_value(tmp)
+                next_val = (val + 1) % 32
+                tmp = self.standard_alphabet.get_char(next_val)
+
+            # Добавляем символ, только если алфавит ещё не заполнен
+            if len(out) < 32:
+                out.append(tmp)
+
+        # Добавляем остальные символы стандартного алфавита
+        for i in range(32):
+            char = self.standard_alphabet.get_char(i)
+            if not self._char_in_list(char, out):
+                out.append(char)
+
+        return out
+
+    def _char_in_list(self, char, char_list):
+        """Проверка, есть ли символ в списке"""
+        return char in char_list
+
+    def shift_table(self, table, sym_in, bias_in):
+        """
+        Реализация shift_Trithemus
+
+        Args:
+            table: текущая таблица (список символов)
+            sym_in: символ, который должен стать первым
+            bias_in: смещение для разделения таблицы
+
+        Returns:
+            Новая таблица
+        """
+        s = sym_in
+        str_part = table[bias_in:]  # часть с bias_in до конца
+        rem_part = table[:bias_in]  # первые bias_in символов
+
+        # Пока s находится в rem_part, увеличиваем s
+        while s in rem_part:
+            val = self.standard_alphabet.get_value(s)
+            next_val = (val + 1) % 32
+            s = self.standard_alphabet.get_char(next_val)
+
+        # Находим позицию s в str_part
+        if s not in str_part:
+            # Если s нет в str_part, ищем первый доступный символ
+            for char in str_part:
+                if char not in rem_part:
+                    s = char
+                    break
+
+        x = str_part.index(s)
+
+        # Удаляем s из str_part
+        str_part = str_part[:x] + str_part[x + 1:]
+
+        # Собираем новую таблицу
+        new_table = [s] + rem_part + str_part
+        return new_table

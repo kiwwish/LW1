@@ -1,5 +1,5 @@
 from alphabet import TelegraphAlphabet, CustomAlphabet
-from tritemius import TritemiusCipher, TextCipher
+from tritemius import TritemiusCipher, TextCipher, PolyTritemiusCipher
 
 
 class SBlock:
@@ -78,6 +78,7 @@ class EnhancedCryptoSystem:
     def __init__(self, shift: int = 8):
         self.alphabet = TelegraphAlphabet()
         self.cipher = TritemiusCipher(shift=shift)
+        self.poly_cipher = PolyTritemiusCipher(shift=shift)  # Добавляем полиалфавитный шифр
         self.text_cipher = TextCipher(self.cipher)
         self.sblock = SBlock(self.alphabet)
 
@@ -157,13 +158,21 @@ class EnhancedCryptoSystem:
         # Дешифруем обычным шифром Тритемиуса
         return self.decrypt_simple(decrypted, key_word)
 
-    # Метод для полиалфавитного шифра (оставлен для совместимости)
+    # Метод для полиалфавитного шифра (НАСТОЯЩАЯ РЕАЛИЗАЦИЯ)
     def encrypt_polyalphabetic(self, text: str, key_word: str, shift: int = 8) -> str:
-        """Полиалфавитное шифрование (для совместимости с GUI)"""
-        # В данном случае просто используем обычное шифрование
-        # так как в классическом шифре Тритемиуса нет полиалфавитного варианта
-        return self.encrypt_simple(text, key_word)
+        """Полиалфавитное шифрование"""
+        if not key_word:
+            return text
+
+        # Обновляем сдвиг в полиалфавитном шифре
+        self.poly_cipher.shift = shift
+        return self.poly_cipher.encrypt(text, key_word)
 
     def decrypt_polyalphabetic(self, text: str, key_word: str, shift: int = 8) -> str:
-        """Дешифрование полиалфавитного шифра (для совместимости с GUI)"""
-        return self.decrypt_simple(text, key_word)
+        """Дешифрование полиалфавитного шифра"""
+        if not key_word:
+            return text
+
+        # Обновляем сдвиг в полиалфавитном шифре
+        self.poly_cipher.shift = shift
+        return self.poly_cipher.decrypt(text, key_word)
