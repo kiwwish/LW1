@@ -1,5 +1,5 @@
-from alphabet import TelegraphAlphabet
-from tritemius import PolyAlphabeticCipher, TritemiusCipher
+from alphabet import TelegraphAlphabet, CustomAlphabet
+from tritemius import TritemiusCipher, TextCipher
 
 
 class SBlock:
@@ -77,52 +77,93 @@ class EnhancedCryptoSystem:
 
     def __init__(self, shift: int = 8):
         self.alphabet = TelegraphAlphabet()
-        self.cipher = TritemiusCipher(self.alphabet, shift=shift)
-        self.poly_cipher = PolyAlphabeticCipher(self.alphabet, self.cipher)
+        self.cipher = TritemiusCipher(shift=shift)
+        self.text_cipher = TextCipher(self.cipher)
         self.sblock = SBlock(self.alphabet)
 
-    # Метод для обычного шифра Тритемиуса (без ключа, только позиционный сдвиг)
+    # Метод для обычного шифра Тритемиуса
     def encrypt_simple(self, text: str, key_word: str) -> str:
         """
         Обычное шифрование Тритемиуса
-        (ключ игнорируется, используется только позиционный сдвиг)
         """
-        result = []
-
-        for i, char in enumerate(text.upper()):
-            if self.alphabet.is_valid_char(char):
-                # В оригинале Тритемиуса: сдвиг = позиция * 8
-                encrypted = self.cipher.encrypt_char(char, i)
-                result.append(encrypted)
-            else:
-                result.append(char)
-
-        return ''.join(result)
+        return self.text_cipher.encrypt_text(text, key_word)
 
     def decrypt_simple(self, text: str, key_word: str) -> str:
         """Дешифрование обычного шифра Тритемиуса"""
-        result = []
+        return self.text_cipher.decrypt_text(text, key_word)
 
-        for i, char in enumerate(text.upper()):
-            if self.alphabet.is_valid_char(char):
-                decrypted = self.cipher.decrypt_char(char, i)
-                result.append(decrypted)
-            else:
-                result.append(char)
+    # Метод для шифрования с усиленными S-блоками
+    def encrypt_enhanced_sblocks(self, text: str, key_word: str) -> str:
+        """
+        Усиленное шифрование с S-блоками
 
-        return ''.join(result)
+        Шаги:
+        1. Шифруем обычным шифром Тритемиуса
+        2. Разбиваем на блоки по 4 символа
+        3. Применяем S-блок к каждому блоку
+        """
+        if not key_word:
+            return text
 
-    # Метод для полиалфавитного шифра Тритемиуса
+        # Сначала шифруем обычным шифром Тритемиуса
+        encrypted = self.encrypt_simple(text, key_word)
+
+        # Дополняем текст до кратности 4 символом '_'
+        while len(encrypted) % 4 != 0:
+            encrypted += '_'
+
+        # Применяем S-блоки
+        result_blocks = []
+        for i in range(0, len(encrypted), 4):
+            block = encrypted[i:i + 4]
+            sbox_block = self.sblock.apply_sbox(block)
+            result_blocks.append(sbox_block)
+
+        return ''.join(result_blocks)
+
+    # Метод для дешифрования с усиленными S-блоками
+    def decrypt_enhanced_sblocks(self, text: str, key_word: str) -> str:
+        """
+        Дешифрование усиленного шифрования с S-блоками
+
+        Шаги:
+        1. Применяем обратный S-блок
+        2. Дешифруем обычным шифром Тритемиуса
+        """
+        if not key_word:
+            return text
+
+        # Проверяем, что текст кратен 4
+        if len(text) % 4 != 0:
+            # Дополняем до кратности 4
+            padded_text = text
+            while len(padded_text) % 4 != 0:
+                padded_text += '_'
+        else:
+            padded_text = text
+
+        # Применяем обратный S-блок
+        decrypted_blocks = []
+        for i in range(0, len(padded_text), 4):
+            block = padded_text[i:i + 4]
+            sbox_block = self.sblock.apply_inverse_sbox(block)
+            decrypted_blocks.append(sbox_block)
+
+        decrypted = ''.join(decrypted_blocks)
+
+        # Убираем возможное дополнение
+        decrypted = decrypted.rstrip('_')
+
+        # Дешифруем обычным шифром Тритемиуса
+        return self.decrypt_simple(decrypted, key_word)
+
+    # Метод для полиалфавитного шифра (оставлен для совместимости)
     def encrypt_polyalphabetic(self, text: str, key_word: str, shift: int = 8) -> str:
-        """
-        Полиалфавитное шифрование Тритемиуса
-        сдвиг = позиция * базовый_сдвиг + значение_символа_ключа
-        """
-        return self.poly_cipher.encrypt_text_polyalphabetic(text, key_word)
+        """Полиалфавитное шифрование (для совместимости с GUI)"""
+        # В данном случае просто используем обычное шифрование
+        # так как в классическом шифре Тритемиуса нет полиалфавитного варианта
+        return self.encrypt_simple(text, key_word)
 
     def decrypt_polyalphabetic(self, text: str, key_word: str, shift: int = 8) -> str:
-        """Дешифрование полиалфавитного шифра Тритемиуса"""
-        return self.poly_cipher.decrypt_text_polyalphabetic(text, key_word)
-
-    # Остальные методы остаются без изменений...
-    # (encrypt_with_sblocks, decrypt_with_sblocks и т.д.)
+        """Дешифрование полиалфавитного шифра (для совместимости с GUI)"""
+        return self.decrypt_simple(text, key_word)

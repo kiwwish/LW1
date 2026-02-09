@@ -1,57 +1,66 @@
-from alphabet import TelegraphAlphabet
+from alphabet import TelegraphAlphabet, CustomAlphabet
 
 
 # Реализация шифра Тритемиуса
 class TritemiusCipher:
 
-    def __init__(self, alphabet: TelegraphAlphabet, shift: int = 8):
-        self.alphabet = alphabet
+    def __init__(self, shift: int = 8):
         self.shift = shift  # Фиксированный сдвиг Тритемиуса
 
-    # Шифрование одного символа с учетом позиции
-    def encrypt_char(self, plain_char: str, position: int) -> str:
-        """Шифрование символа с фиксированным сдвигом по позиции"""
-        if not self.alphabet.is_valid_char(plain_char):
+    # Шифрование одного символа
+    def encrypt_char(self, plain_char: str, alphabet: CustomAlphabet) -> str:
+        """Шифрование символа с фиксированным сдвигом в пользовательском алфавите"""
+        if not alphabet.standard_alphabet.is_valid_char(plain_char):
             return plain_char
 
-        # Сдвиг = базовый сдвиг Тритемиуса (8) * позиция
-        # Или просто позиция, если сдвиг = 1
-        shift_value = position * self.shift
-        char_val = self.alphabet.get_value(plain_char)
-        encrypted_val = (char_val + shift_value) % 32
-        return self.alphabet.get_char(encrypted_val)
+        # Получаем значение символа в пользовательском алфавите
+        char_val = alphabet.char_to_val.get(plain_char.upper())
+        if char_val is None:
+            return plain_char
+
+        # Применяем сдвиг на 8 позиций
+        encrypted_val = (char_val + self.shift) % 32
+        return alphabet.val_to_char[encrypted_val]
 
     # Дешифрование одного символа
-    def decrypt_char(self, cipher_char: str, position: int) -> str:
+    def decrypt_char(self, cipher_char: str, alphabet: CustomAlphabet) -> str:
         """Дешифрование символа"""
-        if not self.alphabet.is_valid_char(cipher_char):
+        if not alphabet.standard_alphabet.is_valid_char(cipher_char):
             return cipher_char
 
-        shift_value = position * self.shift
-        char_val = self.alphabet.get_value(cipher_char)
-        decrypted_val = (char_val - shift_value) % 32
-        return self.alphabet.get_char(decrypted_val)
+        # Получаем значение символа в пользовательском алфавите
+        char_val = alphabet.char_to_val.get(cipher_char.upper())
+        if char_val is None:
+            return cipher_char
+
+        # Применяем обратный сдвиг на 8 позиций
+        decrypted_val = (char_val - self.shift) % 32
+        return alphabet.val_to_char[decrypted_val]
 
 
 # Шифрование и дешифрование текстовых блоков
 class TextCipher:
 
-    def __init__(self, alphabet: TelegraphAlphabet, cipher: TritemiusCipher):
-        self.alphabet = alphabet
+    def __init__(self, cipher: TritemiusCipher):
         self.cipher = cipher
 
     # Моноалфавитное шифрование (один символ ключа для всего текста)
-    def encrypt_text_monoalphabetic(self, text: str, key_word: str) -> str:
+    def encrypt_text(self, text: str, key_word: str) -> str:
         """
         Моноалфавитное шифрование Тритемиуса
-        В оригинале Тритемиуса ключ не используется для определения сдвига,
-        но для совместимости оставим
+        1. Создаем пользовательский алфавит на основе ключа
+        2. Шифруем каждый символ со сдвигом 8 в этом алфавите
         """
-        result = []
+        if not key_word:
+            return text
 
-        for i, char in enumerate(text.upper()):
-            if self.alphabet.is_valid_char(char):
-                encrypted = self.cipher.encrypt_char(char, i)
+        # Создаем пользовательский алфавит на основе ключа
+        alphabet = CustomAlphabet(key_word)
+
+        result = []
+        for char in text.upper():
+            if alphabet.standard_alphabet.is_valid_char(char):
+                encrypted = self.cipher.encrypt_char(char, alphabet)
                 result.append(encrypted)
             else:
                 result.append(char)
@@ -59,74 +68,27 @@ class TextCipher:
         return ''.join(result)
 
     # Дешифрование моноалфавитного шифра
-    def decrypt_text_monoalphabetic(self, text: str, key_word: str) -> str:
-        result = []
+    def decrypt_text(self, text: str, key_word: str) -> str:
+        """Дешифрование текста, зашифрованного методом Тритемиуса"""
+        if not key_word:
+            return text
 
-        for i, char in enumerate(text.upper()):
-            if self.alphabet.is_valid_char(char):
-                decrypted = self.cipher.decrypt_char(char, i)
+        # Создаем пользовательский алфавит на основе ключа (должен быть тот же!)
+        alphabet = CustomAlphabet(key_word)
+
+        result = []
+        for char in text.upper():
+            if alphabet.standard_alphabet.is_valid_char(char):
+                decrypted = self.cipher.decrypt_char(char, alphabet)
                 result.append(decrypted)
             else:
                 result.append(char)
 
         return ''.join(result)
 
-    # Полиалфавитная модификация шифра Тритемиуса
 
-
-class PolyAlphabeticCipher(TextCipher):
-
-    #  Полиалфавитное шифрование - ключ циклически повторяется
-    def encrypt_text_polyalphabetic(self, text: str, key_word: str) -> str:
-        """
-        Полиалфавитный вариант Тритемиуса
-        Здесь ключ уже влияет на сдвиг
-        """
-        if not key_word:
-            return text
-
-        key_word = key_word.upper()
-        result = []
-        key_length = len(key_word)
-
-        for i, char in enumerate(text.upper()):
-            if self.alphabet.is_valid_char(char):
-                # Получаем значение символа ключа
-                key_index = i % key_length
-                key_char = key_word[key_index]
-                key_val = self.alphabet.get_value(key_char)
-
-                # Сдвиг = позиция * базовый сдвиг + значение ключа
-                shift_value = (i * self.cipher.shift + key_val) % 32
-
-                char_val = self.alphabet.get_value(char)
-                encrypted_val = (char_val + shift_value) % 32
-                encrypted_char = self.alphabet.get_char(encrypted_val)
-                result.append(encrypted_char)
-            else:
-                result.append(char)
-
-        return ''.join(result)
-
-    # Дешифрование полиалфавитного шифра
-    def decrypt_text_polyalphabetic(self, text: str, key_word: str) -> str:
-        key_word = key_word.upper()
-        result = []
-        key_length = len(key_word)
-
-        for i, char in enumerate(text.upper()):
-            if self.alphabet.is_valid_char(char):
-                key_index = i % key_length
-                key_char = key_word[key_index]
-                key_val = self.alphabet.get_value(key_char)
-
-                shift_value = (i * self.cipher.shift + key_val) % 32
-
-                char_val = self.alphabet.get_value(char)
-                decrypted_val = (char_val - shift_value) % 32
-                decrypted_char = self.alphabet.get_char(decrypted_val)
-                result.append(decrypted_char)
-            else:
-                result.append(char)
-
-        return ''.join(result)
+# Дополнительные методы для работы с алфавитом
+def get_custom_alphabet_string(key_word: str) -> str:
+    """Получить строковое представление пользовательского алфавита"""
+    alphabet = CustomAlphabet(key_word)
+    return ', '.join(alphabet.custom_symbols)

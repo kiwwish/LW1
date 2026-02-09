@@ -6,6 +6,8 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
 
 from sblocks import EnhancedCryptoSystem
+from tritemius import get_custom_alphabet_string
+
 
 class CryptoApp:
     """Главное окно приложения с 4 вкладками"""
@@ -32,7 +34,7 @@ class CryptoApp:
         notebook.add(tab1, text="Обычный шифр Тритемиуса")
         self._setup_tab1(tab1)
 
-        # Вкладка 2: Полиалфавитный шифр
+        # Вкладка 2: Полиалфавитный шифр (оставлен для совместимости)
         tab2 = ttk.Frame(notebook)
         notebook.add(tab2, text="Полиалфавитный шифр")
         self._setup_tab2(tab2)
@@ -62,7 +64,11 @@ class CryptoApp:
         # Ключ
         ttk.Label(left_frame, text="Ключевое слово:").pack(anchor='w', pady=(0, 5))
         self.tab1_key = ttk.Entry(left_frame)
-        self.tab1_key.pack(fill='x', pady=(0, 10))
+        self.tab1_key.pack(fill='x', pady=(0, 5))
+
+        # Кнопка для просмотра алфавита
+        ttk.Button(left_frame, text="ПОСМОТРЕТЬ АЛФАВИТ",
+                  command=self.show_alphabet_tab1).pack(pady=(0, 10))
 
         # Исходный текст
         ttk.Label(left_frame, text="Исходный текст:").pack(anchor='w', pady=(0, 5))
@@ -106,6 +112,17 @@ class CryptoApp:
         ttk.Button(right_frame, text="КОПИРОВАТЬ РЕЗУЛЬТАТ",
                   command=self.tab1_copy_decrypt_result).pack(pady=5)
 
+    def show_alphabet_tab1(self):
+        """Показать алфавит на основе ключа для вкладки 1"""
+        key = self.tab1_key.get().strip()
+        if not key:
+            messagebox.showinfo("Алфавит", "Введите ключ для построения алфавита")
+            return
+
+        alphabet_str = get_custom_alphabet_string(key)
+        messagebox.showinfo("Пользовательский алфавит",
+                           f"Алфавит на основе ключа '{key}':\n\n{alphabet_str}")
+
     def tab1_encrypt(self):
         """Шифрование для вкладки 1"""
         try:
@@ -123,7 +140,7 @@ class CryptoApp:
             result = self.system.encrypt_simple(text, key)
             self.tab1_result.delete("1.0", tk.END)
             self.tab1_result.insert("1.0", result)
-            self.status_bar.config(text="Текст зашифрован (обычный шифр)")
+            self.status_bar.config(text="Текст зашифрован (обычный шифр Тритемиуса)")
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Произошла ошибка: {e}")
@@ -145,7 +162,7 @@ class CryptoApp:
             result = self.system.decrypt_simple(text, key)
             self.tab1_decrypt_result.delete("1.0", tk.END)
             self.tab1_decrypt_result.insert("1.0", result)
-            self.status_bar.config(text="Текст расшифрован (обычный шифр)")
+            self.status_bar.config(text="Текст расшифрован (обычный шифр Тритемиуса)")
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Произошла ошибка: {e}")
@@ -168,7 +185,7 @@ class CryptoApp:
 
     # ===== ВКЛАДКА 2: Полиалфавитный шифр =====
     def _setup_tab2(self, parent):
-        """Настройка вкладки 2: Полиалфавитный шифр"""
+        """Настройка вкладки 2: Полиалфавитный шифр (оставлен для совместимости)"""
 
         # Левая часть: Шифрование
         left_frame = ttk.LabelFrame(parent, text="Шифрование", padding=10)
@@ -180,8 +197,9 @@ class CryptoApp:
         self.tab2_key.pack(fill='x', pady=(0, 5))
 
         # Сдвиг
-        ttk.Label(left_frame, text="Дополнительный сдвиг (0-31):").pack(anchor='w', pady=(10, 5))
-        self.tab2_shift = ttk.Spinbox(left_frame, from_=0, to=31, width=10)
+        ttk.Label(left_frame, text="Сдвиг (обычно 8):").pack(anchor='w', pady=(10, 5))
+        self.tab2_shift = ttk.Spinbox(left_frame, from_=1, to=31, width=10)
+        self.tab2_shift.set(8)
         self.tab2_shift.pack(fill='x', pady=(0, 10))
 
         # Исходный текст
@@ -231,7 +249,7 @@ class CryptoApp:
         try:
             key = self.tab2_key.get().strip()
             shift_text = self.tab2_shift.get().strip()
-            shift = int(shift_text) if shift_text else 0
+            shift = int(shift_text) if shift_text else 8
             text = self.tab2_input.get("1.0", tk.END).strip()
 
             if not key:
@@ -242,13 +260,15 @@ class CryptoApp:
                 messagebox.showwarning("Ошибка", "Введите текст для шифрования!")
                 return
 
-            result = self.system.encrypt_polyalphabetic(text, key, shift)
+            # Создаем новую систему с указанным сдвигом
+            system = EnhancedCryptoSystem(shift=shift)
+            result = system.encrypt_polyalphabetic(text, key, shift)
             self.tab2_result.delete("1.0", tk.END)
             self.tab2_result.insert("1.0", result)
             self.status_bar.config(text=f"Текст зашифрован (полиалфавитный, сдвиг={shift})")
 
         except ValueError:
-            messagebox.showwarning("Ошибка", "Сдвиг должен быть числом от 0 до 31!")
+            messagebox.showwarning("Ошибка", "Сдвиг должен быть числом от 1 до 31!")
         except Exception as e:
             messagebox.showerror("Ошибка", f"Произошла ошибка: {e}")
 
@@ -257,7 +277,7 @@ class CryptoApp:
         try:
             key = self.tab2_key.get().strip()
             shift_text = self.tab2_shift.get().strip()
-            shift = int(shift_text) if shift_text else 0
+            shift = int(shift_text) if shift_text else 8
             text = self.tab2_cipher_input.get("1.0", tk.END).strip()
 
             if not key:
@@ -268,13 +288,15 @@ class CryptoApp:
                 messagebox.showwarning("Ошибка", "Введите шифротекст!")
                 return
 
-            result = self.system.decrypt_polyalphabetic(text, key, shift)
+            # Создаем новую систему с указанным сдвигом
+            system = EnhancedCryptoSystem(shift=shift)
+            result = system.decrypt_polyalphabetic(text, key, shift)
             self.tab2_decrypt_result.delete("1.0", tk.END)
             self.tab2_decrypt_result.insert("1.0", result)
             self.status_bar.config(text=f"Текст расшифрован (полиалфавитный, сдвиг={shift})")
 
         except ValueError:
-            messagebox.showwarning("Ошибка", "Сдвиг должен быть числом от 0 до 31!")
+            messagebox.showwarning("Ошибка", "Сдвиг должен быть числом от 1 до 31!")
         except Exception as e:
             messagebox.showerror("Ошибка", f"Произошла ошибка: {e}")
 
@@ -302,18 +324,6 @@ class CryptoApp:
         top_frame = ttk.LabelFrame(parent, text="Прямой S-блок", padding=10)
         top_frame.pack(fill='both', expand=True, padx=5, pady=5)
 
-        # Параметры для прямого S-блока
-        params_frame = ttk.Frame(top_frame)
-        params_frame.pack(fill='x', pady=(0, 10))
-
-        ttk.Label(params_frame, text="Ключевое слово:").pack(side='left', padx=(0, 5))
-        self.tab3_key = ttk.Entry(params_frame, width=30)
-        self.tab3_key.pack(side='left', padx=(0, 20))
-
-        ttk.Label(params_frame, text="Холостой ход:").pack(side='left', padx=(0, 5))
-        self.tab3_idle = ttk.Entry(params_frame, width=10)
-        self.tab3_idle.pack(side='left')
-
         # Исходный текст для прямого S-блока
         ttk.Label(top_frame, text="Текст (должен быть кратен 4 символам):").pack(anchor='w', pady=(0, 5))
         self.tab3_input = scrolledtext.ScrolledText(top_frame, height=6)
@@ -333,18 +343,6 @@ class CryptoApp:
         bottom_frame = ttk.LabelFrame(parent, text="Обратный S-блок", padding=10)
         bottom_frame.pack(fill='both', expand=True, padx=5, pady=5)
 
-        # Параметры для обратного S-блока
-        params_frame2 = ttk.Frame(bottom_frame)
-        params_frame2.pack(fill='x', pady=(0, 10))
-
-        ttk.Label(params_frame2, text="Ключевое слово:").pack(side='left', padx=(0, 5))
-        self.tab3_key2 = ttk.Entry(params_frame2, width=30)
-        self.tab3_key2.pack(side='left', padx=(0, 20))
-
-        ttk.Label(params_frame2, text="Холостой ход:").pack(side='left', padx=(0, 5))
-        self.tab3_idle2 = ttk.Entry(params_frame2, width=10)
-        self.tab3_idle2.pack(side='left')
-
         # Зашифрованный текст для обратного S-блока
         ttk.Label(bottom_frame, text="Зашифрованный текст:").pack(anchor='w', pady=(0, 5))
         self.tab3_cipher_input = scrolledtext.ScrolledText(bottom_frame, height=6)
@@ -363,8 +361,6 @@ class CryptoApp:
     def tab3_apply_sbox(self):
         """Применение прямого S-блока"""
         try:
-            key = self.tab3_key.get().strip()
-            idle = self.tab3_idle.get().strip()
             text = self.tab3_input.get("1.0", tk.END).strip()
 
             if not text:
@@ -380,7 +376,6 @@ class CryptoApp:
             result_blocks = []
             for i in range(0, len(text), 4):
                 block = text[i:i + 4]
-                # Холостой ход не используется в базовом S-блоке, но оставим для совместимости
                 sbox_block = self.system.sblock.apply_sbox(block)
                 result_blocks.append(sbox_block)
 
@@ -395,8 +390,6 @@ class CryptoApp:
     def tab3_apply_inverse_sbox(self):
         """Применение обратного S-блока"""
         try:
-            key = self.tab3_key2.get().strip()
-            idle = self.tab3_idle2.get().strip()
             text = self.tab3_cipher_input.get("1.0", tk.END).strip()
 
             if not text:
@@ -412,7 +405,6 @@ class CryptoApp:
             result_blocks = []
             for i in range(0, len(text), 4):
                 block = text[i:i + 4]
-                # Холостой ход не используется в базовом S-блоке
                 sbox_block = self.system.sblock.apply_inverse_sbox(block)
                 result_blocks.append(sbox_block)
 
@@ -432,30 +424,23 @@ class CryptoApp:
         top_frame = ttk.LabelFrame(parent, text="Усиленный S-блок", padding=10)
         top_frame.pack(fill='both', expand=True, padx=5, pady=5)
 
-        # Параметры для усиленного S-блока
-        params_frame = ttk.Frame(top_frame)
-        params_frame.pack(fill='x', pady=(0, 10))
-
-        ttk.Label(params_frame, text="Ключевое слово:").pack(side='left', padx=(0, 5))
-        self.tab4_key = ttk.Entry(params_frame, width=30)
-        self.tab4_key.pack(side='left', padx=(0, 20))
-
-        ttk.Label(params_frame, text="Холостой ход:").pack(side='left', padx=(0, 5))
-        self.tab4_idle = ttk.Entry(params_frame, width=10)
-        self.tab4_idle.pack(side='left')
+        # Ключ
+        ttk.Label(top_frame, text="Ключевое слово:").pack(anchor='w', pady=(0, 5))
+        self.tab4_key = ttk.Entry(top_frame)
+        self.tab4_key.pack(fill='x', pady=(0, 10))
 
         # Исходный текст для усиленного S-блока
-        ttk.Label(top_frame, text="Текст:").pack(anchor='w', pady=(0, 5))
+        ttk.Label(top_frame, text="Исходный текст:").pack(anchor='w', pady=(0, 5))
         self.tab4_input = scrolledtext.ScrolledText(top_frame, height=6)
         self.tab4_input.pack(fill='both', expand=True, pady=(0, 10))
 
         # Кнопка для усиленного S-блока
-        ttk.Button(top_frame, text="ПРИМЕНИТЬ УСИЛЕННЫЙ S-БЛОК",
+        ttk.Button(top_frame, text="ЗАШИФРОВАТЬ С УСИЛЕННЫМИ S-БЛОКАМИ",
                   command=self.tab4_apply_enhanced_sbox,
                   style='Accent.TButton').pack(pady=5)
 
         # Результат усиленного S-блока
-        ttk.Label(top_frame, text="Результат:").pack(anchor='w', pady=(10, 5))
+        ttk.Label(top_frame, text="Результат шифрования:").pack(anchor='w', pady=(10, 5))
         self.tab4_result = scrolledtext.ScrolledText(top_frame, height=6)
         self.tab4_result.pack(fill='both', expand=True, pady=(0, 10))
 
@@ -463,17 +448,10 @@ class CryptoApp:
         bottom_frame = ttk.LabelFrame(parent, text="Дешифрование усиленного S-блока", padding=10)
         bottom_frame.pack(fill='both', expand=True, padx=5, pady=5)
 
-        # Параметры для дешифрования
-        params_frame2 = ttk.Frame(bottom_frame)
-        params_frame2.pack(fill='x', pady=(0, 10))
-
-        ttk.Label(params_frame2, text="Ключевое слово:").pack(side='left', padx=(0, 5))
-        self.tab4_key2 = ttk.Entry(params_frame2, width=30)
-        self.tab4_key2.pack(side='left', padx=(0, 20))
-
-        ttk.Label(params_frame2, text="Холостой ход:").pack(side='left', padx=(0, 5))
-        self.tab4_idle2 = ttk.Entry(params_frame2, width=10)
-        self.tab4_idle2.pack(side='left')
+        # Ключ для дешифрования
+        ttk.Label(bottom_frame, text="Ключевое слово:").pack(anchor='w', pady=(0, 5))
+        self.tab4_key2 = ttk.Entry(bottom_frame)
+        self.tab4_key2.pack(fill='x', pady=(0, 10))
 
         # Зашифрованный текст для дешифрования
         ttk.Label(bottom_frame, text="Зашифрованный текст:").pack(anchor='w', pady=(0, 5))
@@ -481,12 +459,12 @@ class CryptoApp:
         self.tab4_cipher_input.pack(fill='both', expand=True, pady=(0, 10))
 
         # Кнопка для дешифрования
-        ttk.Button(bottom_frame, text="ПРИМЕНИТЬ ОБРАТНЫЙ УСИЛЕННЫЙ S-БЛОК",
+        ttk.Button(bottom_frame, text="РАСШИФРОВАТЬ С УСИЛЕННЫМИ S-БЛОКАМИ",
                   command=self.tab4_apply_inverse_enhanced_sbox,
                   style='Accent.TButton').pack(pady=5)
 
         # Результат дешифрования
-        ttk.Label(bottom_frame, text="Результат:").pack(anchor='w', pady=(10, 5))
+        ttk.Label(bottom_frame, text="Результат дешифрования:").pack(anchor='w', pady=(10, 5))
         self.tab4_decrypt_result = scrolledtext.ScrolledText(bottom_frame, height=6)
         self.tab4_decrypt_result.pack(fill='both', expand=True)
 
@@ -494,7 +472,6 @@ class CryptoApp:
         """Применение усиленного S-блока"""
         try:
             key = self.tab4_key.get().strip()
-            idle = self.tab4_idle.get().strip()
             text = self.tab4_input.get("1.0", tk.END).strip()
 
             if not text:
@@ -509,7 +486,7 @@ class CryptoApp:
             result = self.system.encrypt_enhanced_sblocks(text, key)
             self.tab4_result.delete("1.0", tk.END)
             self.tab4_result.insert("1.0", result)
-            self.status_bar.config(text="Усиленный S-блок применен")
+            self.status_bar.config(text="Текст зашифрован с усиленными S-блоками")
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Произошла ошибка: {e}")
@@ -518,7 +495,6 @@ class CryptoApp:
         """Применение обратного усиленного S-блока"""
         try:
             key = self.tab4_key2.get().strip()
-            idle = self.tab4_idle2.get().strip()
             text = self.tab4_cipher_input.get("1.0", tk.END).strip()
 
             if not text:
@@ -533,7 +509,7 @@ class CryptoApp:
             result = self.system.decrypt_enhanced_sblocks(text, key)
             self.tab4_decrypt_result.delete("1.0", tk.END)
             self.tab4_decrypt_result.insert("1.0", result)
-            self.status_bar.config(text="Обратный усиленный S-блок применен")
+            self.status_bar.config(text="Текст расшифрован с усиленными S-блоками")
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Произошла ошибка: {e}")
@@ -545,3 +521,9 @@ class CryptoApp:
         style.configure('Accent.TButton', font=('Arial', 10, 'bold'), foreground='blue')
 
         self.root.mainloop()
+
+
+# Точка входа в приложение
+if __name__ == "__main__":
+    app = CryptoApp()
+    app.run()
