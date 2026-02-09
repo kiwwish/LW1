@@ -318,53 +318,73 @@ class CryptoApp:
 
     # ===== ВКЛАДКА 3: S-блоки =====
     def _setup_tab3(self, parent):
-        """Настройка вкладки 3: S-блоки"""
+        """Настройка вкладки 3: S-блоки (по псевдокоду)"""
 
         # Верхняя часть: Прямой S-блок
-        top_frame = ttk.LabelFrame(parent, text="Прямой S-блок", padding=10)
+        top_frame = ttk.LabelFrame(parent, text="Шифрование S-блоками", padding=10)
         top_frame.pack(fill='both', expand=True, padx=5, pady=5)
 
-        # Исходный текст для прямого S-блока
+        # Ключ (16 символов)
+        ttk.Label(top_frame, text="Ключ (ровно 16 символов):").pack(anchor='w', pady=(0, 5))
+        self.tab3_key = ttk.Entry(top_frame)
+        self.tab3_key.pack(fill='x', pady=(0, 10))
+
+        # Исходный текст для S-блоков
         ttk.Label(top_frame, text="Текст (должен быть кратен 4 символам):").pack(anchor='w', pady=(0, 5))
         self.tab3_input = scrolledtext.ScrolledText(top_frame, height=6)
         self.tab3_input.pack(fill='both', expand=True, pady=(0, 10))
 
-        # Кнопка для прямого S-блока
-        ttk.Button(top_frame, text="ПРИМЕНИТЬ ПРЯМОЙ S-БЛОК",
-                  command=self.tab3_apply_sbox,
-                  style='Accent.TButton').pack(pady=5)
+        # Кнопка для шифрования S-блоками
+        ttk.Button(top_frame, text="ЗАШИФРОВАТЬ S-БЛОКАМИ",
+                   command=self.tab3_encrypt_sblocks,
+                   style='Accent.TButton').pack(pady=5)
 
-        # Результат прямого S-блока
-        ttk.Label(top_frame, text="Результат:").pack(anchor='w', pady=(10, 5))
+        # Результат шифрования
+        ttk.Label(top_frame, text="Результат шифрования:").pack(anchor='w', pady=(10, 5))
         self.tab3_result = scrolledtext.ScrolledText(top_frame, height=6)
         self.tab3_result.pack(fill='both', expand=True, pady=(0, 10))
 
-        # Нижняя часть: Обратный S-блок
-        bottom_frame = ttk.LabelFrame(parent, text="Обратный S-блок", padding=10)
+        # Нижняя часть: Дешифрование S-блоков
+        bottom_frame = ttk.LabelFrame(parent, text="Дешифрование S-блоков", padding=10)
         bottom_frame.pack(fill='both', expand=True, padx=5, pady=5)
 
-        # Зашифрованный текст для обратного S-блока
+        # Ключ для дешифрования
+        ttk.Label(bottom_frame, text="Ключ (ровно 16 символов):").pack(anchor='w', pady=(0, 5))
+        self.tab3_key2 = ttk.Entry(bottom_frame)
+        self.tab3_key2.pack(fill='x', pady=(0, 10))
+
+        # Зашифрованный текст для дешифрования
         ttk.Label(bottom_frame, text="Зашифрованный текст:").pack(anchor='w', pady=(0, 5))
         self.tab3_cipher_input = scrolledtext.ScrolledText(bottom_frame, height=6)
         self.tab3_cipher_input.pack(fill='both', expand=True, pady=(0, 10))
 
-        # Кнопка для обратного S-блока
-        ttk.Button(bottom_frame, text="ПРИМЕНИТЬ ОБРАТНЫЙ S-БЛОК",
-                  command=self.tab3_apply_inverse_sbox,
-                  style='Accent.TButton').pack(pady=5)
+        # Кнопка для дешифрования S-блоками
+        ttk.Button(bottom_frame, text="РАСШИФРОВАТЬ S-БЛОКАМИ",
+                   command=self.tab3_decrypt_sblocks,
+                   style='Accent.TButton').pack(pady=5)
 
-        # Результат обратного S-блока
-        ttk.Label(bottom_frame, text="Результат:").pack(anchor='w', pady=(10, 5))
+        # Результат дешифрования
+        ttk.Label(bottom_frame, text="Результат дешифрования:").pack(anchor='w', pady=(10, 5))
         self.tab3_decrypt_result = scrolledtext.ScrolledText(bottom_frame, height=6)
         self.tab3_decrypt_result.pack(fill='both', expand=True)
 
-    def tab3_apply_sbox(self):
-        """Применение прямого S-блока"""
+    def tab3_encrypt_sblocks(self):
+        """Шифрование S-блоками (по псевдокоду)"""
         try:
+            key = self.tab3_key.get().strip()
             text = self.tab3_input.get("1.0", tk.END).strip()
 
+            if not key:
+                messagebox.showwarning("Ошибка", "Введите ключ (16 символов)!")
+                return
+
             if not text:
-                messagebox.showwarning("Ошибка", "Введите текст!")
+                messagebox.showwarning("Ошибка", "Введите текст для шифрования!")
+                return
+
+            # Проверяем длину ключа
+            if len(key) != 16:
+                messagebox.showwarning("Ошибка", "Ключ должен содержать ровно 16 символов!")
                 return
 
             # Проверяем, что текст кратен 4
@@ -372,28 +392,31 @@ class CryptoApp:
                 messagebox.showwarning("Ошибка", "Текст должен быть кратен 4 символам!")
                 return
 
-            # Разбиваем на блоки по 4 символа
-            result_blocks = []
-            for i in range(0, len(text), 4):
-                block = text[i:i + 4]
-                sbox_block = self.system.sblock.apply_sbox(block)
-                result_blocks.append(sbox_block)
-
-            result = ''.join(result_blocks)
+            result = self.system.encrypt_s_blocks(text, key)
             self.tab3_result.delete("1.0", tk.END)
             self.tab3_result.insert("1.0", result)
-            self.status_bar.config(text="Прямой S-блок применен")
+            self.status_bar.config(text="Текст зашифрован S-блоками")
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Произошла ошибка: {e}")
 
-    def tab3_apply_inverse_sbox(self):
-        """Применение обратного S-блока"""
+    def tab3_decrypt_sblocks(self):
+        """Дешифрование S-блоками (по псевдокоду)"""
         try:
+            key = self.tab3_key2.get().strip()
             text = self.tab3_cipher_input.get("1.0", tk.END).strip()
 
+            if not key:
+                messagebox.showwarning("Ошибка", "Введите ключ (16 символов)!")
+                return
+
             if not text:
-                messagebox.showwarning("Ошибка", "Введите зашифрованный текст!")
+                messagebox.showwarning("Ошибка", "Введите шифротекст!")
+                return
+
+            # Проверяем длину ключа
+            if len(key) != 16:
+                messagebox.showwarning("Ошибка", "Ключ должен содержать ровно 16 символов!")
                 return
 
             # Проверяем, что текст кратен 4
@@ -401,17 +424,10 @@ class CryptoApp:
                 messagebox.showwarning("Ошибка", "Текст должен быть кратен 4 символам!")
                 return
 
-            # Разбиваем на блоки по 4 символа
-            result_blocks = []
-            for i in range(0, len(text), 4):
-                block = text[i:i + 4]
-                sbox_block = self.system.sblock.apply_inverse_sbox(block)
-                result_blocks.append(sbox_block)
-
-            result = ''.join(result_blocks)
+            result = self.system.decrypt_s_blocks(text, key)
             self.tab3_decrypt_result.delete("1.0", tk.END)
             self.tab3_decrypt_result.insert("1.0", result)
-            self.status_bar.config(text="Обратный S-блок применен")
+            self.status_bar.config(text="Текст расшифрован S-блоками")
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Произошла ошибка: {e}")

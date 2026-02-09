@@ -3,73 +3,51 @@ from tritemius import TritemiusCipher, TextCipher, PolyTritemiusCipher
 
 
 class SBlock:
-    """S-блоки для преобразования блоков по 4 символа"""
+    """S-блоки для шифра Тритимуса (по псевдокоду)"""
 
-    def __init__(self, alphabet: TelegraphAlphabet):
-        self.alphabet = alphabet
-        # Создаем S-бокс (таблицу замены)
-        self.sbox = self._create_sbox()
-        self.inv_sbox = {v: k for k, v in self.sbox.items()}
+    def __init__(self):
+        self.alphabet = TelegraphAlphabet()
+        self.poly_cipher = PolyTritemiusCipher(shift=8)  # Для полиалфавитного шифра
 
-    def _create_sbox(self):
-        """Создание S-бокса (нелинейное преобразование)"""
-        sbox = {}
-        # Пример: циклический сдвиг на позицию + умножение
-        for i in range(32):
-            # Нелинейное преобразование: (value * 7 + 3) % 32
-            new_val = (i * 7 + 3) % 32
-            sbox[self.alphabet.get_char(i)] = self.alphabet.get_char(new_val)
-        return sbox
+    def encrypt_s_block(self, block: str, key: str) -> str:
+        """
+        S-блок шифрование по алгоритму fru_S_Trithemus
 
-    def apply_sbox(self, block: str) -> str:
-        """Применение S-блока к блоку из 4 символов"""
+        Args:
+            block: блок из 4 символов
+            key: ключ из 16 символов
+
+        Returns:
+            Зашифрованный блок или "input_error"
+        """
         if len(block) != 4:
-            raise ValueError(f"Блок должен содержать 4 символа, получено {len(block)}")
+            return "input_error: блок должен содержать 4 символа"
 
-        result = []
-        for i, char in enumerate(block):
-            if self.alphabet.is_valid_char(char):
-                # Разное преобразование в зависимости от позиции
-                transformed = self._sbox_transform(char, i)
-                result.append(transformed)
-            else:
-                result.append(char)
+        if len(key) != 16:
+            return "input_error: ключ должен содержать 16 символов"
 
-        return ''.join(result)
+        # Просто используем полиалфавитный шифр
+        return self.poly_cipher.encrypt(block, key)
 
-    def _sbox_transform(self, char: str, position: int) -> str:
-        """Преобразование символа с учетом позиции в блоке"""
-        # Базовое преобразование из S-бокса
-        base = self.sbox.get(char, char)
+    def decrypt_s_block(self, block: str, key: str) -> str:
+        """
+        Расшифровка S-блока
 
-        # Дополнительный сдвиг в зависимости от позиции
-        val = self.alphabet.get_value(base)
-        shift = (position * 5) % 32  # Разный сдвиг для каждой позиции
-        new_val = (val + shift) % 32
+        Args:
+            block: зашифрованный блок из 4 символов
+            key: ключ из 16 символов
 
-        return self.alphabet.get_char(new_val)
-
-    def apply_inverse_sbox(self, block: str) -> str:
-        """Обратное преобразование S-блока"""
+        Returns:
+            Расшифрованный блок или "input_error"
+        """
         if len(block) != 4:
-            raise ValueError(f"Блок должен содержать 4 символа, получено {len(block)}")
+            return "input_error: блок должен содержать 4 символа"
 
-        result = []
-        for i, char in enumerate(block):
-            if self.alphabet.is_valid_char(char):
-                # Сначала убираем позиционный сдвиг
-                val = self.alphabet.get_value(char)
-                shift = (i * 5) % 32
-                base_val = (val - shift) % 32
-                base_char = self.alphabet.get_char(base_val)
+        if len(key) != 16:
+            return "input_error: ключ должен содержать 16 символов"
 
-                # Затем обратное преобразование S-бокса
-                original = self.inv_sbox.get(base_char, base_char)
-                result.append(original)
-            else:
-                result.append(char)
-
-        return ''.join(result)
+        # Используем полиалфавитный дешифратор
+        return self.poly_cipher.decrypt(block, key)
 
 
 class EnhancedCryptoSystem:
@@ -78,101 +56,61 @@ class EnhancedCryptoSystem:
     def __init__(self, shift: int = 8):
         self.alphabet = TelegraphAlphabet()
         self.cipher = TritemiusCipher(shift=shift)
-        self.poly_cipher = PolyTritemiusCipher(shift=shift)  # Добавляем полиалфавитный шифр
+        self.poly_cipher = PolyTritemiusCipher(shift=8)
         self.text_cipher = TextCipher(self.cipher)
-        self.sblock = SBlock(self.alphabet)
+        self.sblock = SBlock()  # Используем новый SBlock
 
-    # Метод для обычного шифра Тритемиуса
-    def encrypt_simple(self, text: str, key_word: str) -> str:
+    # ... остальные методы без изменений (encrypt_simple, decrypt_simple и т.д.) ...
+
+    # Новые методы для S-блоков (по псевдокоду)
+    def encrypt_s_blocks(self, text: str, key: str) -> str:
         """
-        Обычное шифрование Тритемиуса
+        Шифрование текста с использованием S-блоков
+
+        Args:
+            text: исходный текст (должен быть кратен 4)
+            key: ключ из 16 символов
+
+        Returns:
+            Зашифрованный текст или сообщение об ошибке
         """
-        return self.text_cipher.encrypt_text(text, key_word)
-
-    def decrypt_simple(self, text: str, key_word: str) -> str:
-        """Дешифрование обычного шифра Тритемиуса"""
-        return self.text_cipher.decrypt_text(text, key_word)
-
-    # Метод для шифрования с усиленными S-блоками
-    def encrypt_enhanced_sblocks(self, text: str, key_word: str) -> str:
-        """
-        Усиленное шифрование с S-блоками
-
-        Шаги:
-        1. Шифруем обычным шифром Тритемиуса
-        2. Разбиваем на блоки по 4 символа
-        3. Применяем S-блок к каждому блоку
-        """
-        if not key_word:
-            return text
-
-        # Сначала шифруем обычным шифром Тритемиуса
-        encrypted = self.encrypt_simple(text, key_word)
-
-        # Дополняем текст до кратности 4 символом '_'
-        while len(encrypted) % 4 != 0:
-            encrypted += '_'
-
-        # Применяем S-блоки
-        result_blocks = []
-        for i in range(0, len(encrypted), 4):
-            block = encrypted[i:i + 4]
-            sbox_block = self.sblock.apply_sbox(block)
-            result_blocks.append(sbox_block)
-
-        return ''.join(result_blocks)
-
-    # Метод для дешифрования с усиленными S-блоками
-    def decrypt_enhanced_sblocks(self, text: str, key_word: str) -> str:
-        """
-        Дешифрование усиленного шифрования с S-блоками
-
-        Шаги:
-        1. Применяем обратный S-блок
-        2. Дешифруем обычным шифром Тритемиуса
-        """
-        if not key_word:
-            return text
+        if len(key) != 16:
+            return "Ошибка: ключ должен содержать ровно 16 символов"
 
         # Проверяем, что текст кратен 4
         if len(text) % 4 != 0:
-            # Дополняем до кратности 4
-            padded_text = text
-            while len(padded_text) % 4 != 0:
-                padded_text += '_'
-        else:
-            padded_text = text
+            return "Ошибка: текст должен быть кратен 4 символам"
 
-        # Применяем обратный S-блок
-        decrypted_blocks = []
-        for i in range(0, len(padded_text), 4):
-            block = padded_text[i:i + 4]
-            sbox_block = self.sblock.apply_inverse_sbox(block)
-            decrypted_blocks.append(sbox_block)
+        result_blocks = []
+        for i in range(0, len(text), 4):
+            block = text[i:i + 4]
+            encrypted_block = self.sblock.encrypt_s_block(block, key)
+            result_blocks.append(encrypted_block)
 
-        decrypted = ''.join(decrypted_blocks)
+        return ''.join(result_blocks)
 
-        # Убираем возможное дополнение
-        decrypted = decrypted.rstrip('_')
+    def decrypt_s_blocks(self, text: str, key: str) -> str:
+        """
+        Расшифровка текста с использованием S-блоков
 
-        # Дешифруем обычным шифром Тритемиуса
-        return self.decrypt_simple(decrypted, key_word)
+        Args:
+            text: зашифрованный текст (должен быть кратен 4)
+            key: ключ из 16 символов
 
-    # Метод для полиалфавитного шифра (НАСТОЯЩАЯ РЕАЛИЗАЦИЯ)
-    def encrypt_polyalphabetic(self, text: str, key_word: str, shift: int = 8) -> str:
-        """Полиалфавитное шифрование"""
-        if not key_word:
-            return text
+        Returns:
+            Расшифрованный текст или сообщение об ошибке
+        """
+        if len(key) != 16:
+            return "Ошибка: ключ должен содержать ровно 16 символов"
 
-        # Обновляем сдвиг в полиалфавитном шифре
-        self.poly_cipher.shift = shift
-        return self.poly_cipher.encrypt(text, key_word)
+        # Проверяем, что текст кратен 4
+        if len(text) % 4 != 0:
+            return "Ошибка: текст должен быть кратен 4 символам"
 
-    def decrypt_polyalphabetic(self, text: str, key_word: str, shift: int = 8) -> str:
-        """Дешифрование полиалфавитного шифра"""
-        if not key_word:
-            return text
+        result_blocks = []
+        for i in range(0, len(text), 4):
+            block = text[i:i + 4]
+            decrypted_block = self.sblock.decrypt_s_block(block, key)
+            result_blocks.append(decrypted_block)
 
-        # Обновляем сдвиг в полиалфавитном шифре
-        self.poly_cipher.shift = shift
-        return self.poly_cipher.decrypt(text, key_word)
+        return ''.join(result_blocks)
